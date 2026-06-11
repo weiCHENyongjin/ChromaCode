@@ -156,27 +156,20 @@ $$
 
 ### 2.4 IQ 锁相重建
 
+核心解调（每通道一条按相位匹配的参考信号）的概念实现如下；完整实现见
+`code/spectral_reconstruction.py` 中的 `SpectralReconstructor.reconstruct`（I 通道
+$\varphi=0$ 时 $\sin$ 即标准正弦，Q 通道 $\varphi=\pi/2$ 时 $\sin(\cdot+\pi/2)=\cos$，
+二者由同一公式统一表达）：
+
 ```python
-def iq_phase_lockin(sig_q, f, ws_I, ws_Q, t_sensor,
-                    fs=200, overfs=5000, cutoff=3.5):
-    # 1. 计算传感器积分时延
-    n_per   = overfs // fs
-    delay   = (n_per - 1) / (2 * overfs)   # 单位：秒
-    
-    # 2. 生成相位修正参考信号
-    ref_I = np.sin(2 * np.pi * f * (t_sensor + delay))
-    ref_Q = np.cos(2 * np.pi * f * (t_sensor + delay))
-    
-    # 3. 低通滤波解调（4阶 Butterworth，零相位双向滤波）
-    sos   = butter(4, cutoff / (fs / 2), btype='low', output='sos')
-    lp_I  = sosfiltfilt(sos, sig_q * ref_I)
-    lp_Q  = sosfiltfilt(sos, sig_q * ref_Q)
-    
-    # 4. 幅值校准 → 反射率
-    R_I = np.pi * lp_I / ws_I
-    R_Q = np.pi * lp_Q / ws_Q
-    
-    return R_I, R_Q
+# 每个通道：频率 f、相位 phi、权重 w
+delay = integration_time / 2          # 传感器积分群延迟（见 §1.4 / 理论文档 §6）
+ref   = np.sin(2 * np.pi * f * (t_sensor + delay) + phi)   # 相位补偿的匹配参考
+
+sos   = butter(4, cutoff / (fs / 2), btype='low', output='sos')
+lp    = sosfiltfilt(sos, sig_q * ref)  # 4 阶 Butterworth，零相位双向滤波
+
+R     = np.pi * lp / w                 # 幅值校准 → 反射率
 ```
 
 **校准公式推导**：对于 $d=0.5$ 的 PWM，混频后低通分量为：
@@ -344,228 +337,29 @@ LED:     [13, 23, 33, 43, 53] Hz（间距 G = 10 Hz）
 
 ---
 
-## 附录：完整可复现代码
+## 附录：源代码
 
-```python
-"""
-多波长LED相位编码光强采集系统 - 完整实现
-IQ Phase-Encoded Multi-Wavelength LED Sensing System
+为保持"单一事实来源"（避免文档内嵌代码与实现脱节），完整可复现代码不再内联于此，
+请直接查阅仓库源码（均含详细注释，遵循 `../CODE_STYLE.md` 的统一规范）：
 
-作者: Wei Chen
-日期: 2026-06-05
-依赖: numpy, scipy, matplotlib
-"""
+| 文件 | 内容 |
+|------|------|
+| [`../code/iq_sensing_system.py`](../code/iq_sensing_system.py) | 前向仿真器（`ForwardSimulator`）、目标反射率模型、主程序 |
+| [`../code/spectral_reconstruction.py`](../code/spectral_reconstruction.py) | 锁相重建核心（`SpectralReconstructor`）、光谱模型、配置加载 |
+| [`../code/make_figures.py`](../code/make_figures.py) | 中英双语结果图生成 |
+| [`../config/example_config.yaml`](../config/example_config.yaml) | 传感器 + LED 配置模板 |
+| [`../examples/example_usage.py`](../examples/example_usage.py) | 最小可运行示例 |
+| [`../tests/test_reconstruction.py`](../tests/test_reconstruction.py) | 端到端等价性测试（复现均值 RMSE ≈ 0.044） |
 
-import numpy as np
-import scipy.signal as signal
-from scipy.signal import butter, sosfiltfilt
-import matplotlib.pyplot as plt
+运行：
 
-# ─────────────────────────────────────────────────────
-# 1. 系统参数
-# ─────────────────────────────────────────────────────
-FS       = 200       # 传感器采样率 (Hz)
-OVERFS   = 5000      # 过采样仿真率 (Hz)
-T_SIM    = 12.0      # 仿真时长 (s)
-CUTOFF   = 3.5       # 锁相低通截止频率 (Hz)
-SNR_DB   = 42.0      # 信噪比 (dB)
-BITS     = 8         # ADC 位深
-MAX_VAL  = 2**BITS - 1  # = 255
-
-# 传感器积分时延
-n_per     = OVERFS // FS         # = 25
-INT_DELAY = (n_per - 1) / (2 * OVERFS)  # = 2.4e-3 s
-
-# 10个波长通道（nm）
-WLS10 = [450, 494, 539, 583, 628, 672, 717, 761, 806, 850]
-
-# 5个LED频率组（Hz），每组携带2个正交通道
-OPT_FREQS = [13, 23, 33, 43, 53]
-
-# 频率-波长配对：(freq, I通道波长, Q通道波长)
-PAIRS = [(f, WLS10[2*k], WLS10[2*k+1]) for k, f in enumerate(OPT_FREQS)]
-
-# ─────────────────────────────────────────────────────
-# 2. 传感器光谱响应（硅基，400-1000 nm）
-# ─────────────────────────────────────────────────────
-wavelengths = np.arange(400, 1001, 1.0)
-
-def sensor_response(wl):
-    """近似硅基传感器光谱响应（归一化）"""
-    r = np.zeros_like(wl, dtype=float)
-    m = (wl >= 400) & (wl <= 1000)
-    wm = wl[m]
-    r[m] = np.clip((wm - 380) / 120, 0, 1) * np.clip((1020 - wm) / 300, 0, 1)
-    return r / r.max()
-
-sr = sensor_response(wavelengths)
-
-# ─────────────────────────────────────────────────────
-# 3. LED-传感器有效权重
-# ─────────────────────────────────────────────────────
-def compute_weights(wl_list, fwhm=20, scale=0.2):
-    """计算各 LED 通道的传感器加权积分"""
-    raw = np.array([
-        np.trapezoid(
-            np.exp(-4 * np.log(2) * ((wavelengths - wl) / fwhm)**2) * sr,
-            wavelengths
-        )
-        for wl in wl_list
-    ])
-    return raw / raw.max() * scale
-
-ws10 = compute_weights(WLS10)
-
-# ─────────────────────────────────────────────────────
-# 4. 目标反射率模型（时变）
-# ─────────────────────────────────────────────────────
-def target_reflectance(t, wl):
-    """
-    仿真目标物体在给定波长下的时变反射率。
-    基础值随波长变化，叠加两个低频正弦分量。
-    """
-    f1 = 0.5 + (wl - 450) / 400   # 基频（Hz）
-    f2 = 1.7 * f1                  # 二次分量（Hz）
-    r  = (0.4 + 0.3 * np.exp(-((wl - 600) / 150)**2)
-          + 0.15 * np.sin(2 * np.pi * f1 * t)
-          + 0.08 * np.sin(2 * np.pi * f2 * t + np.pi / 3))
-    return np.clip(r, 0.05, 0.95)
-
-# ─────────────────────────────────────────────────────
-# 5. 仿真信号合成与传感器采样
-# ─────────────────────────────────────────────────────
-np.random.seed(42)
-
-t_hi  = np.linspace(0, T_SIM, int(T_SIM * OVERFS), endpoint=False)
-ns    = int(T_SIM * FS)
-t_sensor = np.linspace(0, T_SIM, ns, endpoint=False)
-
-# 计算各通道真实反射率（在高采样率时间轴上）
-true_refl = {wl: target_reflectance(t_hi, wl) for wl in WLS10}
-
-# 合成全部 LED 贡献
-sig_continuous = np.zeros(len(t_hi))
-for f, wl_I, wl_Q in PAIRS:
-    iI = WLS10.index(wl_I)
-    iQ = WLS10.index(wl_Q)
-    # I 通道：phase = 0 （标准方波）
-    sig_continuous += (ws10[iI]
-                       * (signal.square(2 * np.pi * f * t_hi, duty=0.5) + 1) / 2
-                       * true_refl[wl_I])
-    # Q 通道：phase = π/2 （90° 相移）
-    sig_continuous += (ws10[iQ]
-                       * (signal.square(2 * np.pi * f * t_hi + np.pi / 2, duty=0.5) + 1) / 2
-                       * true_refl[wl_Q])
-
-# 传感器积分（对 n_per 个过采样点取均值）
-sig_sampled = sig_continuous[:ns * n_per].reshape(ns, n_per).mean(axis=1)
-
-# 添加高斯噪声 → SNR = 42 dB
-sig_rms   = np.sqrt(np.mean(sig_sampled**2))
-noise_std = sig_rms / 10**(SNR_DB / 20)
-noise     = np.random.normal(0, noise_std, ns)
-
-# 8-bit 量化
-sig_q = np.clip(
-    np.round((sig_sampled + noise) * MAX_VAL),
-    0, MAX_VAL
-) / MAX_VAL
-
-# ─────────────────────────────────────────────────────
-# 6. IQ 锁相解调
-# ─────────────────────────────────────────────────────
-def iq_phase_lockin(sig_q, f, ws_I, ws_Q, t_sensor,
-                    fs=FS, overfs=OVERFS, cutoff=CUTOFF):
-    """
-    正交相位锁相检测。
-    
-    参数
-    ----
-    sig_q    : 量化后的传感器信号
-    f        : LED 调制频率 (Hz)
-    ws_I, ws_Q : I 和 Q 通道的传感器权重
-    t_sensor : 采样时间轴
-    
-    返回
-    ----
-    R_I, R_Q : 两个通道的重建反射率序列
-    """
-    # 传感器积分时延补偿
-    n_per_   = overfs // fs
-    delay    = (n_per_ - 1) / (2 * overfs)
-    
-    # 相位修正后的参考信号
-    ref_I = np.sin(2 * np.pi * f * (t_sensor + delay))
-    ref_Q = np.cos(2 * np.pi * f * (t_sensor + delay))
-    
-    # 低通滤波解调（4阶 Butterworth，零相位）
-    sos = butter(4, cutoff / (fs / 2), btype='low', output='sos')
-    lp_I = sosfiltfilt(sos, sig_q * ref_I)
-    lp_Q = sosfiltfilt(sos, sig_q * ref_Q)
-    
-    # 幅值校准
-    R_I = np.pi * lp_I / ws_I
-    R_Q = np.pi * lp_Q / ws_Q
-    
-    return R_I, R_Q
-
-# 执行解调
-TRIM = 1.0   # 去掉首尾各 1 s 的滤波器边缘效应
-vl   = (t_sensor >= TRIM) & (t_sensor <= T_SIM - TRIM)
-t_vl = t_sensor[vl]
-
-recon = {}
-for f, wl_I, wl_Q in PAIRS:
-    iI = WLS10.index(wl_I)
-    iQ = WLS10.index(wl_Q)
-    R_I, R_Q = iq_phase_lockin(sig_q, f, ws10[iI], ws10[iQ], t_sensor)
-    recon[wl_I] = R_I[vl]
-    recon[wl_Q] = R_Q[vl]
-
-# ─────────────────────────────────────────────────────
-# 7. 性能评估
-# ─────────────────────────────────────────────────────
-print(f"{'通道':<8} {'LED频率':>8} {'相位':>6} {'RMSE':>10} {'皮尔逊r':>10}")
-print('-' * 48)
-rmse_list = []
-for k, wl in enumerate(WLS10):
-    f_grp = PAIRS[k // 2][0]
-    ph    = 'I' if k % 2 == 0 else 'Q'
-    ri    = np.interp(t_vl, t_hi, true_refl[wl])
-    r     = recon[wl]
-    rmse  = np.sqrt(np.mean((r - ri)**2))
-    corr  = np.corrcoef(r, ri)[0, 1]
-    rmse_list.append(rmse)
-    print(f"{wl}nm    {f_grp:>6}Hz {ph:>6} {rmse:>10.5f} {corr:>10.5f}")
-print(f"{'均值':<8} {'':>8} {'':>6} {np.mean(rmse_list):>10.5f}")
-
-# ─────────────────────────────────────────────────────
-# 8. 可视化
-# ─────────────────────────────────────────────────────
-COLORS10 = plt.cm.rainbow(np.linspace(0.05, 0.95, 10))
-fig, axes = plt.subplots(10, 1, figsize=(14, 22), sharex=True)
-
-for k, (wl, ax) in enumerate(zip(WLS10, axes)):
-    f_grp = PAIRS[k // 2][0]
-    ph    = 'I' if k % 2 == 0 else 'Q'
-    ri    = np.interp(t_vl, t_hi, true_refl[wl])
-    r     = recon[wl]
-    rmse  = np.sqrt(np.mean((r - ri)**2))
-
-    ax.plot(t_vl, ri, color=COLORS10[k], lw=2, alpha=0.5, label='真实值')
-    ax.plot(t_vl, r,  color='black',     lw=1.5, ls='--',
-            label=f'重建 RMSE={rmse:.4f}')
-    ax.fill_between(t_vl, ri, r, alpha=0.1, color='red')
-    ax.set_ylim(0, 1.1)
-    ax.set_ylabel(f'{wl}nm\n{f_grp}Hz-{ph}', fontsize=9)
-    ax.legend(fontsize=8, loc='upper right')
-
-axes[-1].set_xlabel('时间 (s)')
-fig.suptitle('10通道 IQ 相位编码系统 — 全通道重建', fontsize=12, fontweight='bold')
-plt.tight_layout()
-plt.savefig('v1_10ch_reconstruction.png', dpi=150)
-plt.show()
+```bash
+pip install -r ../requirements.txt
+python ../code/iq_sensing_system.py        # 仿真 + 重建 + 结果图
+python ../tests/test_reconstruction.py     # 验证精度
 ```
+
+完整数学理论（定义、引理、定理及证明）见 [`mathematical_theory.md`](mathematical_theory.md)。
 
 ---
 

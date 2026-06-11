@@ -115,10 +115,11 @@ v1_best_scheme/
 ├── README.md                       ← 英文说明
 ├── README.zh-CN.md                 ← 本文件（中文）
 ├── LICENSE                         ← MIT 许可证
+├── CODE_STYLE.md                   ← 代码规范
 ├── requirements.txt                ← Python 依赖
 ├── code/
-│   ├── iq_sensing_system.py        ← 完整可复现仿真（含主程序）
-│   ├── spectral_reconstruction.py  ← 配置驱动的重建 API
+│   ├── iq_sensing_system.py        ← 前向仿真器 + 参考演示（含主程序）
+│   ├── spectral_reconstruction.py  ← 核心：配置驱动的重建 API
 │   └── make_figures.py             ← 重新生成中英双语 README 结果图
 ├── config/
 │   └── example_config.yaml         ← 传感器 + LED 配置模板（带注释）
@@ -140,7 +141,7 @@ v1_best_scheme/
 # 安装依赖
 pip install -r requirements.txt
 
-python code/iq_sensing_system.py        # 自包含仿真 + 可视化
+python code/iq_sensing_system.py        # 参考仿真 + 可视化
 python examples/example_usage.py        # 配置驱动 API 的演示
 python tests/test_reconstruction.py     # 端到端等价性测试
 ```

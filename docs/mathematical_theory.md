@@ -171,7 +171,7 @@ $$
 (\mathcal{S}x)[n]=\frac{1}{T_\mathrm{int}}\int_{nT_s}^{nT_s+T_\mathrm{int}}x(\tau)\,d\tau,\qquad T_s=\frac{1}{F_s},\ \ n=0,1,\dots\tag{3.2}
 $$
 
-其离散实现（仿真中 $F_\mathrm{sim}=$`OVERFS`，每采样 $n_\mathrm{per}=F_\mathrm{sim}/F_s$ 个过采样点取均值）为
+其离散实现（仿真中 $F_\mathrm{sim}=$ `oversample_rate_hz`，每采样 $n_\mathrm{per}=F_\mathrm{sim}/F_s$ 个过采样点取均值）为
 
 $$
 (\mathcal{S}x)[n]=\frac{1}{n_\mathrm{per}}\sum_{j=0}^{n_\mathrm{per}-1}x\!\big(nT_s+jT_\mathrm{sim}\big),\qquad T_\mathrm{sim}=1/F_\mathrm{sim}.
@@ -318,7 +318,7 @@ $$
 
 **证明.** 由引理 6.1，被测载波相位为 $2\pi f(t+\tau)+\psi$。令参考相位与之一致即 $r_m=\sin(2\pi f(t+\tau)+\varphi_m)$，则定理 6.2 中的等效 $\Delta\phi=0$，$\cos\Delta\phi$ 取唯一极大 $1$、$\sin\Delta\phi=0$。$\blacksquare$
 
-代码实现（`spectral_reconstruction.py` 的 `_reference` 与 `group_delay`）：
+代码实现（`spectral_reconstruction.py` 的 `_reference` 与 `group_delay_s`）：
 
 ```python
 tau = integration_time / 2          # 或显式 integration_delay
@@ -409,7 +409,7 @@ $$
 w_k\approx\sum_{\lambda\in\Lambda_\delta}\tilde I_k(\lambda)\,\tilde\eta(\lambda)\,\delta.
 $$
 
-实现见 `overlap_integral()`（`code/spectral_reconstruction.py`）。该步骤保证不同源数据可一致积分。
+实现见 `spectral_overlap()`（`code/spectral_reconstruction.py`）。该步骤保证不同源数据可一致积分。
 
 ### 9.3 标定模式（按实用性排序）
 

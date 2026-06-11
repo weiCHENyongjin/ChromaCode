@@ -1,11 +1,17 @@
-"""
-End-to-end test: drive the config-based API with the validated forward
-simulator and confirm it reproduces the reference accuracy.
+"""End-to-end test of the config-driven reconstruction API.
 
 用已验证的前向仿真信号驱动配置化 API，确认重建精度与原方案一致。
 
+Three calibration paths are exercised:
+    1. explicit weights  -> exact reproduction of the published ~0.044 RMSE
+    2. gray reference    -> practical, no LED-power / response knowledge
+    3. spectral response on a *mismatched* wavelength grid -> resampling path
+
 Run:  python tests/test_reconstruction.py
 """
+
+from __future__ import annotations
+
 import os
 import sys
 
@@ -15,94 +21,100 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "code"))
 
-import iq_sensing_system as sim                     # forward simulator (validated)
-from spectral_reconstruction import SpectralReconstructor
+from iq_sensing_system import (  # noqa: E402
+    SPECTRAL_GRID_NM,
+    WAVELENGTHS_NM,
+    ForwardSimulator,
+    evaluate_reconstruction,
+    synthetic_target_reflectance,
+)
+from spectral_reconstruction import (  # noqa: E402
+    ReconstructionConfig,
+    SpectralReconstructor,
+    silicon_sensor_response,
+)
 
 
-def _base_config(weights=None):
-    """Config matching the simulator. Integration delay is set to the
-    simulator's exact boxcar delay so this is a faithful equivalence check.
-    If ``weights`` is given, attach the per-channel calibration weight."""
-    tau = (sim.OVERFS // sim.FS - 1) / (2 * sim.OVERFS)   # = 0.0024 s
-    leds = []
-    for k, (f, phi, wl) in enumerate(sim.PAIRS):
-        led = {"wavelength": wl, "freq": f, "phase_rad": float(phi), "fwhm": 20}
-        if weights is not None:
-            led["weight"] = float(weights[k])
-        leds.append(led)
-    return {
-        "sensor": {"fs": sim.FS, "integration_delay": tau},
-        "lpf": {"cutoff": sim.CUTOFF, "order": 4},
-        "leds": leds,
-    }
-
-
-def _score(res, t_hi, true_refl, title):
-    print(f"\n=== {title} | mode={res.calibration_mode} "
-          f"| tau={res.integration_delay*1e3:.2f} ms ===")
+def _score(result, time_hi, true_reflectance, title):
+    """Print and return (mean RMSE, mean Pearson r) for a reconstruction."""
+    metrics = evaluate_reconstruction(result, time_hi, true_reflectance)
+    print(f"\n=== {title} | mode={result.calibration_mode} "
+          f"| tau={result.integration_delay_s * 1e3:.2f} ms ===")
     print(f"{'wavelength':>10} {'RMSE':>10} {'Pearson r':>10}")
     print("-" * 34)
-    rmses, corrs = [], []
-    for wl in sim.WLS10:
-        gt = np.interp(res.t, t_hi, true_refl[wl])
-        r = res.reflectance[wl]
-        rmse = float(np.sqrt(np.nanmean((r - gt) ** 2)))
-        corr = float(np.corrcoef(r, gt)[0, 1])
-        rmses.append(rmse); corrs.append(corr)
-        print(f"{wl:>8.0f}nm {rmse:>10.4f} {corr:>10.4f}")
-    mr = float(np.mean(rmses))
+    for wl in WAVELENGTHS_NM:
+        print(f"{wl:>8.0f}nm {metrics[wl]['rmse']:>10.4f} {metrics[wl]['corr']:>10.4f}")
+    mean_rmse = float(np.mean([metrics[wl]["rmse"] for wl in WAVELENGTHS_NM]))
+    mean_corr = float(np.mean([metrics[wl]["corr"] for wl in WAVELENGTHS_NM]))
     print("-" * 34)
-    print(f"{'mean':>10} {mr:>10.4f} {np.mean(corrs):>10.4f}")
-    return mr, float(np.mean(corrs))
+    print(f"{'mean':>10} {mean_rmse:>10.4f} {mean_corr:>10.4f}")
+    return mean_rmse, mean_corr
 
 
-def main():
-    # ---- forward model: measurement capture ------------------------------
-    t_hi = np.linspace(0, sim.T_SIM, int(sim.T_SIM * sim.OVERFS), endpoint=False)
-    true_refl = {wl: sim.target_reflectance(t_hi, wl) for wl in sim.WLS10}
-    sig, t_sensor, _ = sim.synthesize_sensor_signal(true_refl, seed=42)
+def main() -> None:
+    simulator = ForwardSimulator.default()
+    time_hi = simulator.oversample_time_s()
+    sensor_time = simulator.sensor_time_s()
+    true_reflectance = {wl: synthetic_target_reflectance(time_hi, wl)
+                        for wl in WAVELENGTHS_NM}
+    signal_q = simulator.synthesize(true_reflectance, seed=42)
 
-    # (1) EXACT EQUIVALENCE: explicit weights -> must match the original ~0.044
-    rec_w = SpectralReconstructor.from_dict(_base_config(weights=sim.ws10))
-    res_w = rec_w.reconstruct(sig, t=t_sensor, trim=1.0)
-    mr_w, corr_w = _score(res_w, t_hi, true_refl, "explicit weights")
+    # (1) EXACT EQUIVALENCE: the simulator's matched reconstructor uses the
+    #     known per-channel weights -> reproduces the published ~0.044 RMSE.
+    result_w = simulator.reconstructor().reconstruct(
+        signal_q, time_s=sensor_time, trim_s=1.0)
+    mean_rmse_w, mean_corr_w = _score(result_w, time_hi, true_reflectance,
+                                      "explicit weights")
 
-    # (2) PRACTICAL PATH: gray reference (R=0.5, won't saturate the ADC),
-    #     no knowledge of LED power or sensor response required.
-    gray = {wl: 0.5 * np.ones_like(t_hi) for wl in sim.WLS10}
-    gray_sig, _, _ = sim.synthesize_sensor_signal(gray, seed=7)
-    rec_g = SpectralReconstructor.from_dict(_base_config())
-    res_g = rec_g.reconstruct(sig, t=t_sensor, white_reference=gray_sig,
-                              reference_level=0.5, trim=1.0)
-    mr_g, corr_g = _score(res_g, t_hi, true_refl, "gray reference (R=0.5)")
+    # (2) PRACTICAL PATH: a gray reference (R=0.5, won't saturate the ADC); no
+    #     knowledge of LED power or sensor response is required.
+    gray = {wl: 0.5 * np.ones_like(time_hi) for wl in WAVELENGTHS_NM}
+    gray_signal = simulator.synthesize(gray, seed=7)
+    reconstructor = SpectralReconstructor(simulator.reconstruction_config())
+    result_g = reconstructor.reconstruct(
+        signal_q, time_s=sensor_time, white_reference=gray_signal,
+        reference_level=0.5, trim_s=1.0)
+    mean_rmse_g, mean_corr_g = _score(result_g, time_hi, true_reflectance,
+                                      "gray reference (R=0.5)")
 
-    # (3) SPECTRAL PATH with MISMATCHED wavelength sampling: sensor response
-    #     given on a coarse 10 nm grid; LED lines are 20 nm Gaussians on an
-    #     implicit fine grid. Verifies the resampling code path runs and the
-    #     shape (correlation) is recovered (absolute scale is relative here).
-    cfg = _base_config()
-    cfg["sensor"]["spectral_response"] = {
-        "wavelengths": list(range(400, 1001, 10)),                  # 10 nm grid
-        "response": [float(sim.sensor_response(np.array([w]))[0])    # sampled coarsely
-                     for w in range(400, 1001, 10)],
+    # (3) SPECTRAL PATH with MISMATCHED wavelength sampling: the sensor response
+    #     is supplied on a coarse 10 nm grid while LED lines live on a fine
+    #     implicit grid. Verifies the resampling path runs and recovers shape.
+    coarse_grid = np.arange(400, 1001, 10)
+    config_dict = {
+        "sensor": {
+            "fs": simulator.params.sample_rate_hz,
+            "integration_delay": simulator.params.boxcar_delay_s,
+            "spectral_response": {
+                "wavelengths": [float(w) for w in coarse_grid],
+                "response": [float(silicon_sensor_response(np.array([w]))[0])
+                             for w in coarse_grid],
+            },
+        },
+        "lpf": {"cutoff": simulator.params.lpf_cutoff_hz, "order": 4},
+        "leds": [{"wavelength": ch.wavelength_nm, "freq": ch.frequency_hz,
+                  "phase_rad": ch.phase_rad, "fwhm": ch.fwhm_nm}
+                 for ch in simulator.channels],
     }
-    res_s = SpectralReconstructor.from_dict(cfg).reconstruct(sig, t=t_sensor, trim=1.0)
-    corr_s = float(np.mean([
-        np.corrcoef(res_s.reflectance[wl], np.interp(res_s.t, t_hi, true_refl[wl]))[0, 1]
-        for wl in sim.WLS10]))
-    print(f"\n[spectral path, mismatched 10nm grid] mode={res_s.calibration_mode} "
-          f"mean corr={corr_s:.4f}")
-    assert res_s.calibration_mode == "spectral"
-    assert np.all([np.all(np.isfinite(res_s.reflectance[wl])) for wl in sim.WLS10])
-    assert corr_s > 0.95, f"spectral-path mean corr too low: {corr_s}"
+    result_s = SpectralReconstructor.from_dict(config_dict).reconstruct(
+        signal_q, time_s=sensor_time, trim_s=1.0)
+    metrics_s = evaluate_reconstruction(result_s, time_hi, true_reflectance)
+    mean_corr_s = float(np.mean([metrics_s[wl]["corr"] for wl in WAVELENGTHS_NM]))
+    print(f"\n[spectral path, mismatched 10nm grid] mode={result_s.calibration_mode} "
+          f"mean corr={mean_corr_s:.4f}")
 
     # ---- assertions ------------------------------------------------------
-    assert mr_w < 0.05, f"explicit-weights mean RMSE too high: {mr_w}"
-    assert corr_w > 0.95, f"explicit-weights mean corr too low: {corr_w}"
-    assert mr_g < 0.07, f"gray-reference mean RMSE too high: {mr_g}"
-    assert corr_g > 0.95, f"gray-reference mean corr too low: {corr_g}"
+    assert isinstance(simulator.reconstruction_config(), ReconstructionConfig)
+    assert mean_rmse_w < 0.05, f"explicit-weights mean RMSE too high: {mean_rmse_w}"
+    assert mean_corr_w > 0.95, f"explicit-weights mean corr too low: {mean_corr_w}"
+    assert mean_rmse_g < 0.07, f"gray-reference mean RMSE too high: {mean_rmse_g}"
+    assert mean_corr_g > 0.95, f"gray-reference mean corr too low: {mean_corr_g}"
+    assert result_s.calibration_mode == "spectral"
+    assert all(np.all(np.isfinite(result_s.reflectance[wl])) for wl in WAVELENGTHS_NM)
+    assert mean_corr_s > 0.95, f"spectral-path mean corr too low: {mean_corr_s}"
+
     print("\nPASS: config-driven API reproduces the validated accuracy "
-          f"(explicit-weights mean RMSE={mr_w:.4f}, matches original 0.044).")
+          f"(explicit-weights mean RMSE={mean_rmse_w:.4f}, matches original 0.044).")
 
 
 if __name__ == "__main__":
