@@ -56,6 +56,10 @@ def set_lang(lang):
 # ---- label dictionaries ---------------------------------------------------
 L = {
     "en": {
+        "spectra_title": "LED emission bands and sensor spectral response "
+                         "(10 channels = 5 frequencies x IQ phases, d=0.5)",
+        "spectra_x": "wavelength (nm)", "spectra_y": "normalized intensity / response",
+        "sensor_resp": "sensor response",
         "concept_title": "How it works: the spectrum is encoded onto the light source",
         "sig_title": "(a) Captured single-detector signal (first 0.5 s)",
         "sig_x": "time (s)", "sig_y": "intensity (a.u.)",
@@ -70,6 +74,9 @@ L = {
         "wl": "wavelength (nm)",
     },
     "zh": {
+        "spectra_title": "LED 发射谱与传感器光谱响应（10 通道 = 5 频率 x IQ 相位，d=0.5）",
+        "spectra_x": "波长 (nm)", "spectra_y": "归一化强度 / 响应",
+        "sensor_resp": "传感器响应",
         "concept_title": "原理示意：光谱信息被编码到光源上",
         "sig_title": "(a) 单传感器采集信号（前 0.5 秒）",
         "sig_x": "时间 (s)", "sig_y": "光强 (a.u.)",
@@ -98,6 +105,32 @@ def compute():
 
 
 # ---- figure builders ------------------------------------------------------
+def fig_spectra(D, lang):
+    set_lang(lang); T = L[lang]
+    colors = plt.cm.rainbow(np.linspace(0.05, 0.95, 10))
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    # sensor spectral response
+    ax.plot(sim.wavelengths, sim.sr, "k-", lw=2, label=T["sensor_resp"])
+
+    # each LED emission band
+    for k, (f, phi, wl) in enumerate(sim.PAIRS):
+        band = sim.led_spectrum(wl)
+        ax.fill_between(sim.wavelengths, band, color=colors[k], alpha=0.45)
+        ax.plot(sim.wavelengths, band, color=colors[k], lw=1)
+        ph = "I" if phi < 0.1 else "Q"
+        ax.annotate(f"{wl}nm\n{f}Hz-{ph}", (wl, 1.04), ha="center",
+                    va="bottom", fontsize=7.5, color=colors[k])
+
+    ax.set_xlim(400, 1000); ax.set_ylim(0, 1.22)
+    ax.set_xlabel(T["spectra_x"]); ax.set_ylabel(T["spectra_y"])
+    ax.set_title(T["spectra_title"], fontsize=12, fontweight="bold")
+    ax.legend(loc="upper right", fontsize=9)
+    ax.grid(alpha=0.25)
+    plt.tight_layout()
+    _save(fig, f"fig0_spectra_{lang}")
+
+
 def fig_concept(D, lang):
     set_lang(lang); T = L[lang]
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7))
@@ -200,6 +233,7 @@ if __name__ == "__main__":
         print("WARNING: no CJK font found; Chinese figures may show boxes.")
     D = compute()
     for lang in ("en", "zh"):
+        fig_spectra(D, lang)
         fig_concept(D, lang)
         fig_reconstruction(D, lang)
         fig_accuracy(D, lang)

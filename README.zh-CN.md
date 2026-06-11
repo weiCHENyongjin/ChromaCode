@@ -78,6 +78,8 @@ $$\hat R_k(t) = \frac{\pi}{w_k}\,\mathrm{LPF}[\,s\, r_k\,]
 | 43 Hz | 717 nm | 761 nm |
 | 53 Hz | 806 nm | 850 nm |
 
+![光谱](figures/fig0_spectra_zh.png)
+
 ---
 
 ## 重建性能（Fs=200Hz, 8bit, SNR=42dB）

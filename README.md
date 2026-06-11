@@ -109,6 +109,8 @@ the demodulator — visible as the five sharp lines in the captured signal's spe
 | 43 Hz | 717 nm | 761 nm |
 | 53 Hz | 806 nm | 850 nm |
 
+![spectra](figures/fig0_spectra_en.png)
+
 ---
 
 ## Reconstruction performance (Fs=200 Hz, 8-bit, SNR=42 dB)
