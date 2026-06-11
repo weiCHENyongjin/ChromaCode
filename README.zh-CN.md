@@ -74,15 +74,23 @@
 
 ```
 v1_best_scheme/
-├── README.md                    ← 英文说明
-├── README.zh-CN.md              ← 本文件（中文）
-├── LICENSE                      ← MIT 许可证
-├── requirements.txt             ← Python 依赖
+├── README.md                       ← 英文说明
+├── README.zh-CN.md                 ← 本文件（中文）
+├── LICENSE                         ← MIT 许可证
+├── requirements.txt                ← Python 依赖
 ├── code/
-│   └── iq_sensing_system.py     ← 完整可复现代码（含主程序）
+│   ├── iq_sensing_system.py        ← 完整可复现仿真（含主程序）
+│   └── spectral_reconstruction.py  ← 配置驱动的重建 API
+├── config/
+│   └── example_config.yaml         ← 传感器 + LED 配置模板（带注释）
+├── examples/
+│   └── example_usage.py            ← 最小可运行示例
+├── tests/
+│   └── test_reconstruction.py      ← 端到端等价性测试
 ├── docs/
-│   └── system_documentation.md  ← 系统技术文档（含数学推导）
-└── figures/                     ← 结果图
+│   ├── system_documentation.md     ← 系统工程文档（含推导）
+│   └── mathematical_theory.md      ← 完整数学理论（引理、定理及证明）
+└── figures/                        ← 结果图
 ```
 
 ---
@@ -93,9 +101,30 @@ v1_best_scheme/
 # 安装依赖
 pip install -r requirements.txt
 
-# 运行主程序（生成重建结果和基本可视化）
-python code/iq_sensing_system.py
+python code/iq_sensing_system.py        # 自包含仿真 + 可视化
+python examples/example_usage.py        # 配置驱动 API 的演示
+python tests/test_reconstruction.py     # 端到端等价性测试
 ```
+
+## 可复用重建 API
+
+[`code/spectral_reconstruction.py`](code/spectral_reconstruction.py) 提供配置驱动接口：在
+JSON/YAML 文件中描述**传感器 + LED**，传入采集到的一维信号，得到各波长反射率。
+
+```python
+from spectral_reconstruction import SpectralReconstructor
+
+rec = SpectralReconstructor.from_config_file("config/example_config.yaml")
+result = rec.reconstruct(signal, white_reference=gray_capture, reference_level=0.5)
+refl_850nm = result.reflectance[850.0]     # 850 nm 通道的时间序列
+```
+
+**传感器光谱响应为可选项**（实际中通常未知）。标定模式按实用性排序：`white_reference`
+（拍一帧平整参考板 → 绝对反射率，无需知道 LED 功率与响应）→ `weights`（已标定权重）→
+`spectral`（用可选的响应曲线 → 相对反射率）→ `none`（相对量，逐通道尺度未知）。
+LED 光谱与响应曲线**波长采样间隔不一致时会自动重采样到统一栅格**。配置模板见
+[`config/example_config.yaml`](config/example_config.yaml)。完整数学理论见
+[`docs/mathematical_theory.md`](docs/mathematical_theory.md)。
 
 ---
 

@@ -86,10 +86,34 @@ numbers are in [`docs/system_documentation.md`](docs/system_documentation.md).
 
 ```bash
 pip install -r requirements.txt
-python code/iq_sensing_system.py    # runs reconstruction + basic visualization
+python code/iq_sensing_system.py        # self-contained simulation + visualization
+python examples/example_usage.py        # config-driven API on a demo signal
+python tests/test_reconstruction.py     # end-to-end equivalence test
 ```
 
-Requires Python 3.9+ with `numpy`, `scipy`, `matplotlib`.
+Requires Python 3.9+ with `numpy`, `scipy`, `matplotlib` (and optionally `pyyaml` for YAML configs).
+
+## Reusable reconstruction API
+
+[`code/spectral_reconstruction.py`](code/spectral_reconstruction.py) exposes a config-driven
+interface: describe your **sensor + LEDs** in a JSON/YAML file, pass in the captured 1-D
+detector signal, and get back per-wavelength reflectance.
+
+```python
+from spectral_reconstruction import SpectralReconstructor
+
+rec = SpectralReconstructor.from_config_file("config/example_config.yaml")
+result = rec.reconstruct(signal, white_reference=gray_capture, reference_level=0.5)
+refl_850nm = result.reflectance[850.0]      # time series for the 850 nm channel
+```
+
+**The sensor spectral response is optional** (it is usually unknown). Calibration modes, in
+order of practicality: `white_reference` (a single flat-target capture → absolute reflectance,
+no LED-power or response knowledge needed) → `weights` (pre-calibrated) → `spectral` (uses the
+optional response curve → relative reflectance) → `none` (relative, unknown per-channel scale).
+**Mismatched wavelength sampling** between LED spectra and the response curve is handled
+automatically by resampling onto a common grid. See
+[`config/example_config.yaml`](config/example_config.yaml) for an annotated template.
 
 ---
 
@@ -102,10 +126,18 @@ Requires Python 3.9+ with `numpy`, `scipy`, `matplotlib`.
 ├── LICENSE                      ← MIT
 ├── requirements.txt
 ├── code/
-│   └── iq_sensing_system.py     ← full reproducible code (with main)
+│   ├── iq_sensing_system.py        ← full reproducible simulation (with main)
+│   └── spectral_reconstruction.py  ← config-driven reconstruction API
+├── config/
+│   └── example_config.yaml         ← annotated sensor + LED config template
+├── examples/
+│   └── example_usage.py            ← minimal end-to-end API example
+├── tests/
+│   └── test_reconstruction.py      ← end-to-end equivalence test
 ├── docs/
-│   └── system_documentation.md  ← technical doc incl. math derivation
-└── figures/                     ← result figures
+│   ├── system_documentation.md     ← engineering doc incl. derivations
+│   └── mathematical_theory.md      ← full theory: lemmas, theorems, proofs
+└── figures/                        ← result figures
 ```
 
 ---

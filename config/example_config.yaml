@@ -1,0 +1,59 @@
+# ============================================================================
+# Example configuration for spectral_reconstruction.py
+# 多光谱重建配置示例
+# ============================================================================
+#
+# This mirrors the validated v1 "best scheme": 5 frequencies x 2 phases = 10
+# wavelength channels. Copy and edit for your own hardware.
+# 本示例对应已验证的 v1 最优方案：5 频率 x 2 相位 = 10 通道。
+# ----------------------------------------------------------------------------
+
+sensor:
+  fs: 200                  # sample rate (Hz) / 采样率
+
+  # --- Sensor integration delay (choose ONE, or omit for the default) ------
+  # The lock-in reference must be advanced by the boxcar group delay of the
+  # exposure. Pick whichever you can measure:
+  #   integration_time : exposure window length (s); delay = T/2 is used.
+  #   integration_delay: give the delay (s) directly (overrides the above).
+  # If both are omitted, full-frame exposure (1/fs) is assumed -> delay = 1/(2*fs).
+  # 锁相参考需按曝光积分的群延迟提前。二选一填写，留空则默认满帧曝光。
+  integration_time: 0.005          # 5 ms exposure -> tau = 2.5 ms
+  # integration_delay: 0.0024      # or set the delay directly
+
+  # --- Sensor spectral response (OPTIONAL) ---------------------------------
+  # Usually UNKNOWN in practice -> leave it out and use a white reference for
+  # absolute reflectance. Provide it only if you have a measured/datasheet
+  # quantum-efficiency curve. The wavelength grid here may differ from the LED
+  # spectra grid; the code resamples both onto a common grid automatically.
+  # 传感器光谱响应一般未知 -> 可省略，用白参考获得绝对反射率。
+  # 若提供，其波长采样间隔可与 LED 光谱不同，程序会自动统一重采样。
+  #
+  # spectral_response:
+  #   wavelengths: [400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 1000]
+  #   response:    [0.10, 0.45, 0.70, 0.85, 0.95, 1.00, 0.95, 0.85, 0.70, 0.55, 0.40, 0.10]
+
+lpf:
+  cutoff: 3.5              # lock-in low-pass cutoff (Hz) / 锁相低通截止
+  order: 4                 # Butterworth order (zero-phase filtfilt) / 巴特沃斯阶数
+
+resample_step: 1.0         # common-grid step (nm) for spectral overlap integrals
+
+# ---------------------------------------------------------------------------
+# LED channels.  phase is in DEGREES by default (use phase_rad for radians).
+# I-channel = 0 deg, Q-channel = 90 deg.  Optionally add:
+#   weight   : pre-calibrated channel weight, or
+#   spectrum : measured LED spectrum {wavelengths: [...], intensity: [...]}
+# LED 通道。phase 默认单位为“度”。可选填 weight 或实测 spectrum。
+# ---------------------------------------------------------------------------
+leds:
+  - {wavelength: 450, freq: 13, phase: 0,  fwhm: 20, label: "ch01"}
+  - {wavelength: 494, freq: 13, phase: 90, fwhm: 20, label: "ch02"}
+  - {wavelength: 539, freq: 23, phase: 0,  fwhm: 20, label: "ch03"}
+  - {wavelength: 583, freq: 23, phase: 90, fwhm: 20, label: "ch04"}
+  - {wavelength: 628, freq: 33, phase: 0,  fwhm: 20, label: "ch05"}
+  - {wavelength: 672, freq: 33, phase: 90, fwhm: 20, label: "ch06"}
+  - {wavelength: 717, freq: 43, phase: 0,  fwhm: 20, label: "ch07"}
+  - {wavelength: 761, freq: 43, phase: 90, fwhm: 20, label: "ch08"}
+  - {wavelength: 806, freq: 53, phase: 0,  fwhm: 20, label: "ch09"}
+  - {wavelength: 850, freq: 53, phase: 90, fwhm: 20, label: "ch10"}
