@@ -223,20 +223,22 @@ if __name__ == '__main__':
     mean_rmse = np.mean([metrics[wl]['rmse'] for wl in WLS10])
     print(f'{"均值":<10} {"":>8} {"":>6}  {mean_rmse:>10.5f}')
 
-    # 基本可视化
+    # 基本可视化 (English labels keep this portable on systems without a CJK
+    # font; for polished bilingual README figures use code/make_figures.py)
     fig, axes = plt.subplots(5, 2, figsize=(14, 18), sharex=True)
     for k, (f, phi, wl) in enumerate(PAIRS):
         ax = axes[k//2, k%2]
         ri = np.interp(t_valid, t_hi, true_refl[wl])
-        ax.plot(t_valid, ri, lw=2, alpha=0.6, label='真实值')
+        ax.plot(t_valid, ri, lw=2, alpha=0.6, label='ground truth')
         ax.plot(t_valid, recon[wl], 'k--', lw=1.5,
-                label=f'重建 RMSE={metrics[wl]["rmse"]:.4f}')
+                label=f'reconstructed RMSE={metrics[wl]["rmse"]:.4f}')
         ax.set_ylim(0, 1.1)
         ax.set_title(f'{wl}nm | {f}Hz-{"I" if phi<0.1 else "Q"}', fontsize=10)
         ax.legend(fontsize=8)
-    axes[-1, 0].set_xlabel('时间(s)'); axes[-1, 1].set_xlabel('时间(s)')
-    fig.suptitle('IQ相位编码系统 — 10通道重建结果', fontsize=13, fontweight='bold')
+    axes[-1, 0].set_xlabel('time (s)'); axes[-1, 1].set_xlabel('time (s)')
+    fig.suptitle('IQ phase-encoded system - 10-channel reconstruction',
+                 fontsize=13, fontweight='bold')
     plt.tight_layout()
     plt.savefig('reconstruction_result.png', dpi=150, bbox_inches='tight')
     plt.show()
-    print('\n结果图已保存: reconstruction_result.png')
+    print('\nresult figure saved: reconstruction_result.png')

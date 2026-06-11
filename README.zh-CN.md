@@ -25,6 +25,36 @@
 
 ---
 
+## 工作原理 —— 三步看懂数学思路
+
+完整理论（定义、引理、定理及证明）见 [`docs/mathematical_theory.md`](docs/mathematical_theory.md)。直观理解如下：
+
+**第 1 步：编码。** 每个 LED *k* 以各自的频率 $f_k$、50% 占空比方波闪烁。50% 占空比方波的基频很"干净"（偶次谐波全部消失）：
+
+$$p_k(t) = \tfrac12 + \tfrac{2}{\pi}\sin(2\pi f_k t + \varphi_k) + \text{(奇次谐波)}.$$
+
+单个传感器看到的是所有波长贡献之**和**，各项被（时变）反射率 $R_k(t)$ 加权：
+
+$$s(t) = \sum_k w_k\, R_k(t)\, p_k(t) + \text{噪声}.$$
+
+**第 2 步：分离（锁相）。** 把采集信号乘以某个 LED 频率的参考信号，再低通滤波。由于不同频率的正弦相互正交，**其他所有通道平均为零**，只剩该通道缓慢变化的反射率：
+
+$$\mathrm{LPF}\big[\,s(t)\,\sin(2\pi f_k t + \varphi_k)\,\big] = \frac{w_k}{\pi} R_k(t).$$
+
+两个**相同频率**但相差 90°（sin 与 cos）的 LED 同样正交 —— 这就是把通道数翻倍的 **IQ 技巧**。
+
+**第 3 步：标定。** 除以常数即还原反射率 —— 既可用已知权重，也可（无需传感器/LED 信息）除以一帧平整参考板的采集：
+
+$$\hat R_k(t) = \frac{\pi}{w_k}\,\mathrm{LPF}[\,s\, r_k\,]
+\qquad\text{或}\qquad
+\hat R_k(t) = R_\text{ref}\,\frac{\mathrm{LPF}[\,s\, r_k\,]}{\mathrm{LPF}[\,s_\text{ref}\, r_k\,]}.$$
+
+光谱信息被实实在在地**写入光的频率**中，再由解调器读出 —— 表现为采集信号频谱中的 5 条尖锐谱线：
+
+![原理](figures/fig1_concept_zh.png)
+
+---
+
 ## 最优参数配置
 
 | 参数 | 值 | 说明 |
@@ -51,6 +81,12 @@
 ---
 
 ## 重建性能（Fs=200Hz, 8bit, SNR=42dB）
+
+各通道重建反射率均紧密跟踪真实值：
+
+![重建结果](figures/fig2_reconstruction_zh.png)
+
+![精度](figures/fig3_accuracy_zh.png)
 
 | 通道 | 信号变化频率 | RMSE | 皮尔逊 r |
 |------|-----------|------|---------|
@@ -80,7 +116,8 @@ v1_best_scheme/
 ├── requirements.txt                ← Python 依赖
 ├── code/
 │   ├── iq_sensing_system.py        ← 完整可复现仿真（含主程序）
-│   └── spectral_reconstruction.py  ← 配置驱动的重建 API
+│   ├── spectral_reconstruction.py  ← 配置驱动的重建 API
+│   └── make_figures.py             ← 重新生成中英双语 README 结果图
 ├── config/
 │   └── example_config.yaml         ← 传感器 + LED 配置模板（带注释）
 ├── examples/
