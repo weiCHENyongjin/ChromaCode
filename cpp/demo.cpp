@@ -1,7 +1,7 @@
 // ChromaCode C++ demo / validation.
 //
-// Loads a captured signal (one value per line), reconstructs the 10 wavelength
-// channels with the validated v1 configuration, and scores each channel's RMSE
+// Loads the SAME JSON config the Python reconstructor uses, plus a captured
+// signal, reconstructs the wavelength channels, and scores each channel's RMSE
 // and Pearson r against the analytic ground truth.
 //
 // Build (see cpp/README.md):
@@ -9,39 +9,18 @@
 //     demo.cpp -L$(brew --prefix armadillo)/lib -larmadillo -o chromacode_demo
 //
 // Run:
-//   ./chromacode_demo signal.csv
+//   ./chromacode_demo ../config/default_10ch.json sample_signal.csv
 
 #include <cmath>
 #include <cstdio>
-#include <vector>
 
 #include "chromacode.hpp"
 
-using chromacode::LEDChannel;
 using chromacode::ReconstructionConfig;
 using chromacode::SpectralReconstructor;
+using chromacode::load_config_file;
 
 namespace {
-
-constexpr double kSampleRateHz = 200.0;
-constexpr double kCutoffHz = 3.5;
-constexpr double kDurationS = 12.0;
-constexpr double kIntegrationDelayS = 0.0024;  // (5000/200 - 1) / (2 * 5000)
-
-// Validated 10-channel layout: wavelength, frequency, phase, weight.
-// Weights are the LED-sensor spectral overlaps from the Python reference.
-const std::vector<LEDChannel> kChannels = {
-    {450, 13, 0.0,           0.116666666598},
-    {494, 13, M_PI / 2.0,    0.188004561885},
-    {539, 23, 0.0,           0.199999993927},
-    {583, 23, M_PI / 2.0,    0.200000000000},
-    {628, 33, 0.0,           0.200000000000},
-    {672, 33, M_PI / 2.0,    0.199999999993},
-    {717, 43, 0.0,           0.198604115506},
-    {761, 43, M_PI / 2.0,    0.172666665936},
-    {806, 53, 0.0,           0.142666666667},
-    {850, 53, M_PI / 2.0,    0.113333333333},
-};
 
 // Analytic ground-truth reflectance (matches synthetic_target_reflectance).
 arma::vec ground_truth(const arma::vec& t, double wl) {
@@ -60,35 +39,38 @@ double pearson(const arma::vec& a, const arma::vec& b) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::fprintf(stderr, "usage: %s <signal.csv> [white_reference.csv]\n",
+    if (argc < 3) {
+        std::fprintf(stderr,
+                     "usage: %s <config.json> <signal.csv> [white_reference.csv]\n",
                      argv[0]);
         return 1;
     }
 
-    arma::vec signal;
-    if (!signal.load(argv[1], arma::raw_ascii) || signal.is_empty()) {
-        std::fprintf(stderr, "error: cannot load signal from %s\n", argv[1]);
-        return 1;
-    }
-    arma::vec white;
-    if (argc >= 3 && !white.load(argv[2], arma::raw_ascii)) {
-        std::fprintf(stderr, "error: cannot load white reference from %s\n", argv[2]);
+    ReconstructionConfig config;
+    try {
+        config = load_config_file(argv[1]);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "error loading config: %s\n", e.what());
         return 1;
     }
 
-    ReconstructionConfig config;
-    config.sample_rate_hz = kSampleRateHz;
-    config.lpf_cutoff_hz = kCutoffHz;
-    config.lpf_order = 4;
-    config.integration_delay_s = kIntegrationDelayS;
-    config.channels = kChannels;
+    arma::vec signal;
+    if (!signal.load(argv[2], arma::raw_ascii) || signal.is_empty()) {
+        std::fprintf(stderr, "error: cannot load signal from %s\n", argv[2]);
+        return 1;
+    }
+    arma::vec white;
+    if (argc >= 4 && !white.load(argv[3], arma::raw_ascii)) {
+        std::fprintf(stderr, "error: cannot load white reference from %s\n", argv[3]);
+        return 1;
+    }
 
     SpectralReconstructor reconstructor(config);
     auto result = reconstructor.reconstruct(signal, white,
                                             /*reference_level=*/1.0,
                                             /*trim_s=*/1.0);
 
+    std::printf("config           : %s\n", argv[1]);
     std::printf("calibration mode : %s\n", result.calibration_mode.c_str());
     std::printf("integration delay: %.3f ms\n", result.integration_delay_s * 1e3);
     std::printf("%10s %10s %10s\n", "wavelength", "RMSE", "Pearson r");

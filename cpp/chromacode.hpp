@@ -15,14 +15,164 @@
 #pragma once
 
 #include <armadillo>
+#include <cctype>
 #include <cmath>
 #include <complex>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace chromacode {
+
+// ---------------------------------------------------------------------------
+// Minimal dependency-free JSON parser (enough for the shared config schema).
+// Lets C++ read the SAME .json config Python uses.
+// ---------------------------------------------------------------------------
+namespace json {
+
+struct Value {
+    enum Type { Null, Bool, Num, Str, Arr, Obj } type = Null;
+    bool b = false;
+    double n = 0.0;
+    std::string s;
+    std::vector<Value> arr;
+    std::map<std::string, Value> obj;
+
+    bool contains(const std::string& k) const {
+        return type == Obj && obj.count(k) > 0;
+    }
+    const Value& at(const std::string& k) const { return obj.at(k); }
+    double num() const { return n; }
+    double num_or(const std::string& k, double d) const {
+        return contains(k) ? obj.at(k).n : d;
+    }
+};
+
+class Parser {
+public:
+    explicit Parser(const std::string& text) : s_(text) {}
+    Value parse() {
+        skip();
+        Value v = value();
+        return v;
+    }
+
+private:
+    const std::string& s_;
+    std::size_t i_ = 0;
+
+    [[noreturn]] void err(const std::string& m) const {
+        throw std::runtime_error("JSON parse error: " + m);
+    }
+    void skip() {
+        while (i_ < s_.size() && std::isspace((unsigned char)s_[i_])) ++i_;
+    }
+    void expect(const char* lit) {
+        std::size_t L = std::strlen(lit);
+        if (s_.compare(i_, L, lit) != 0) err(std::string("expected ") + lit);
+        i_ += L;
+    }
+    Value value() {
+        skip();
+        if (i_ >= s_.size()) err("unexpected end of input");
+        char c = s_[i_];
+        if (c == '{') return object();
+        if (c == '[') return array();
+        if (c == '"') { Value v; v.type = Value::Str; v.s = str(); return v; }
+        if (c == 't' || c == 'f') return boolean();
+        if (c == 'n') { expect("null"); return Value{}; }
+        return number();
+    }
+    Value boolean() {
+        Value v; v.type = Value::Bool;
+        if (s_[i_] == 't') { expect("true"); v.b = true; }
+        else { expect("false"); v.b = false; }
+        return v;
+    }
+    Value number() {
+        std::size_t start = i_;
+        while (i_ < s_.size() &&
+               (std::isdigit((unsigned char)s_[i_]) || std::strchr("+-.eE", s_[i_])))
+            ++i_;
+        Value v; v.type = Value::Num;
+        v.n = std::strtod(s_.substr(start, i_ - start).c_str(), nullptr);
+        return v;
+    }
+    std::string str() {
+        ++i_;  // opening quote
+        std::string out;
+        while (i_ < s_.size() && s_[i_] != '"') {
+            char c = s_[i_++];
+            if (c == '\\' && i_ < s_.size()) {
+                char e = s_[i_++];
+                switch (e) {
+                    case 'n': out += '\n'; break;
+                    case 't': out += '\t'; break;
+                    case 'r': out += '\r'; break;
+                    case '"': out += '"'; break;
+                    case '\\': out += '\\'; break;
+                    case '/': out += '/'; break;
+                    default: out += e; break;
+                }
+            } else {
+                out += c;
+            }
+        }
+        if (i_ >= s_.size()) err("unterminated string");
+        ++i_;  // closing quote
+        return out;
+    }
+    Value array() {
+        Value v; v.type = Value::Arr;
+        ++i_; skip();
+        if (i_ < s_.size() && s_[i_] == ']') { ++i_; return v; }
+        while (true) {
+            v.arr.push_back(value());
+            skip();
+            if (i_ >= s_.size()) err("unterminated array");
+            if (s_[i_] == ',') { ++i_; continue; }
+            if (s_[i_] == ']') { ++i_; break; }
+            err("expected ',' or ']'");
+        }
+        return v;
+    }
+    Value object() {
+        Value v; v.type = Value::Obj;
+        ++i_; skip();
+        if (i_ < s_.size() && s_[i_] == '}') { ++i_; return v; }
+        while (true) {
+            skip();
+            if (i_ >= s_.size() || s_[i_] != '"') err("expected string key");
+            std::string key = str();
+            skip();
+            if (i_ >= s_.size() || s_[i_] != ':') err("expected ':'");
+            ++i_;
+            v.obj[key] = value();
+            skip();
+            if (i_ >= s_.size()) err("unterminated object");
+            if (s_[i_] == ',') { ++i_; continue; }
+            if (s_[i_] == '}') { ++i_; break; }
+            err("expected ',' or '}'");
+        }
+        return v;
+    }
+};
+
+inline Value parse(const std::string& text) { return Parser(text).parse(); }
+inline Value parse_file(const std::string& path) {
+    std::ifstream f(path);
+    if (!f) throw std::runtime_error("cannot open config file: " + path);
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return parse(ss.str());
+}
+
+}  // namespace json
 
 // ---------------------------------------------------------------------------
 // Second-order section (biquad), a0 normalized to 1.
@@ -180,6 +330,47 @@ struct ReconstructionResult {
     std::string calibration_mode;
     double integration_delay_s;
 };
+
+// Build a config from a parsed JSON object using the SAME schema as Python's
+// ReconstructionConfig.from_dict (sensor / lpf / leds). The C++ core uses the
+// per-channel `weight`; fields it does not need (e.g. spectral_response) are
+// simply ignored, so one config file serves both languages.
+inline ReconstructionConfig config_from_json(const json::Value& root) {
+    if (root.type != json::Value::Obj || !root.contains("sensor")
+            || !root.contains("leds"))
+        throw std::runtime_error("config: expected object with 'sensor' and 'leds'");
+
+    ReconstructionConfig cfg;
+    const json::Value& sensor = root.at("sensor");
+    cfg.sample_rate_hz = sensor.at("fs").num();
+    cfg.integration_delay_s =
+        sensor.contains("integration_delay") ? sensor.at("integration_delay").num() : -1.0;
+    cfg.integration_time_s =
+        sensor.contains("integration_time") ? sensor.at("integration_time").num() : -1.0;
+
+    if (root.contains("lpf")) {
+        const json::Value& lpf = root.at("lpf");
+        cfg.lpf_cutoff_hz = lpf.num_or("cutoff", 3.5);
+        cfg.lpf_order = static_cast<int>(lpf.num_or("order", 4));
+    }
+
+    for (const json::Value& led : root.at("leds").arr) {
+        LEDChannel ch;
+        ch.wavelength_nm = led.at("wavelength").num();
+        ch.frequency_hz = led.at("freq").num();
+        if (led.contains("phase_rad")) ch.phase_rad = led.at("phase_rad").num();
+        else if (led.contains("phase_deg")) ch.phase_rad = led.at("phase_deg").num() * M_PI / 180.0;
+        else if (led.contains("phase")) ch.phase_rad = led.at("phase").num() * M_PI / 180.0;  // bare = degrees
+        else ch.phase_rad = 0.0;
+        ch.weight = led.contains("weight") ? led.at("weight").num() : 1.0;
+        cfg.channels.push_back(ch);
+    }
+    return cfg;
+}
+
+inline ReconstructionConfig load_config_file(const std::string& path) {
+    return config_from_json(json::parse_file(path));
+}
 
 // ---------------------------------------------------------------------------
 // Reconstructor

@@ -4,6 +4,13 @@ A self-contained C++17 port of the Python `SpectralReconstructor` inverse path:
 **reference → mix → zero-phase Butterworth low-pass → calibrate**. It reproduces
 the Python reference accuracy channel-for-channel (mean RMSE ≈ 0.044).
 
+**Same config as Python.** Both languages read the same JSON file
+([`../config/default_10ch.json`](../config/default_10ch.json)) — Python via
+`SpectralReconstructor.from_config_file(...)`, C++ via
+`chromacode::load_config_file(...)`. A built-in dependency-free JSON parser
+handles the shared schema, so there is one source of truth for the system
+parameters.
+
 ## Files
 
 | File | Purpose |
@@ -35,7 +42,7 @@ brew install armadillo          # macOS
 ARMA=$(brew --prefix armadillo)
 clang++ -std=c++17 -O2 -I"$ARMA/include" demo.cpp \
         -L"$ARMA/lib" -larmadillo -o chromacode_demo
-./chromacode_demo sample_signal.csv
+./chromacode_demo ../config/default_10ch.json sample_signal.csv
 ```
 
 **CMake:**
@@ -43,7 +50,7 @@ clang++ -std=c++17 -O2 -I"$ARMA/include" demo.cpp \
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/chromacode_demo sample_signal.csv
+./build/chromacode_demo ../config/default_10ch.json sample_signal.csv
 ```
 
 Expected output (matches the Python reference exactly):
@@ -68,16 +75,13 @@ PASS: C++ port reproduces the validated accuracy (mean RMSE 0.0439 ~ 0.044).
 #include "chromacode.hpp"
 using namespace chromacode;
 
-ReconstructionConfig cfg;
-cfg.sample_rate_hz      = 200.0;
-cfg.lpf_cutoff_hz       = 3.5;
-cfg.lpf_order           = 4;
-cfg.integration_delay_s = 0.0024;          // or set integration_time_s
-cfg.channels = {                            // {wavelength, freq, phase, weight}
-    {450, 13, 0.0,        0.1167},
-    {494, 13, M_PI / 2.0, 0.1880},
-    // ... 10 channels
-};
+// Load the shared JSON config (same file Python uses):
+ReconstructionConfig cfg = load_config_file("config/default_10ch.json");
+
+// ...or build it in code:
+//   cfg.sample_rate_hz = 200.0; cfg.lpf_cutoff_hz = 3.5; cfg.lpf_order = 4;
+//   cfg.integration_delay_s = 0.0024;
+//   cfg.channels = { {450, 13, 0.0, 0.1167}, {494, 13, M_PI/2, 0.1880}, ... };
 
 SpectralReconstructor rec(cfg);
 arma::vec signal;  signal.load("signal.csv", arma::raw_ascii);

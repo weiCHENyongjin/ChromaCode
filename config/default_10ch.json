@@ -1,0 +1,23 @@
+{
+  "_comment": "Shared config for BOTH the Python and C++ reconstructors (validated v1, weights mode). Python: SpectralReconstructor.from_config_file(...); C++: chromacode::load_config_file(...).",
+  "sensor": {
+    "fs": 200,
+    "integration_delay": 0.0024
+  },
+  "lpf": {
+    "cutoff": 3.5,
+    "order": 4
+  },
+  "leds": [
+    {"wavelength": 450, "freq": 13, "phase_deg": 0,  "weight": 0.116666666598, "label": "ch01"},
+    {"wavelength": 494, "freq": 13, "phase_deg": 90, "weight": 0.188004561885, "label": "ch02"},
+    {"wavelength": 539, "freq": 23, "phase_deg": 0,  "weight": 0.199999993927, "label": "ch03"},
+    {"wavelength": 583, "freq": 23, "phase_deg": 90, "weight": 0.200000000000, "label": "ch04"},
+    {"wavelength": 628, "freq": 33, "phase_deg": 0,  "weight": 0.200000000000, "label": "ch05"},
+    {"wavelength": 672, "freq": 33, "phase_deg": 90, "weight": 0.199999999993, "label": "ch06"},
+    {"wavelength": 717, "freq": 43, "phase_deg": 0,  "weight": 0.198604115506, "label": "ch07"},
+    {"wavelength": 761, "freq": 43, "phase_deg": 90, "weight": 0.172666665936, "label": "ch08"},
+    {"wavelength": 806, "freq": 53, "phase_deg": 0,  "weight": 0.142666666667, "label": "ch09"},
+    {"wavelength": 850, "freq": 53, "phase_deg": 90, "weight": 0.113333333333, "label": "ch10"}
+  ]
+}

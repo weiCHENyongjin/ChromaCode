@@ -1,5 +1,7 @@
 # Multi-Wavelength LED Phase-Encoded Reflectance Sensing for Multispectral Imaging
 
+[![CI](https://github.com/weiCHENyongjin/ChromaCode/actions/workflows/ci.yml/badge.svg)](https://github.com/weiCHENyongjin/ChromaCode/actions/workflows/ci.yml)
+
 > **Language**: **English** | [中文](README.zh-CN.md)
 
 **Version**: v1  **Date**: 2026-06-05
@@ -156,6 +158,8 @@ refl_850nm = result.reflectance[850.0]      # time series for the 850 nm channel
 
 A **C++ port** of the reconstruction core lives in [`cpp/`](cpp/) (header-only, Armadillo-based)
 and reproduces the Python accuracy channel-for-channel — see [`cpp/README.md`](cpp/README.md).
+**Python and C++ read the same JSON config** ([`config/default_10ch.json`](config/default_10ch.json)),
+so the system parameters have a single source of truth.
 
 **The sensor spectral response is optional** (it is usually unknown). Calibration modes, in
 order of practicality: `white_reference` (a single flat-target capture → absolute reflectance,
