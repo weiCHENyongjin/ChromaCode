@@ -9,6 +9,6 @@ endif()
 
 find_package(Armadillo REQUIRED)
 
-add_executable(chromacode_demo demo.cpp)
-target_include_directories(chromacode_demo PRIVATE ${ARMADILLO_INCLUDE_DIRS})
+add_executable(chromacode_demo src/demo.cpp)
+target_include_directories(chromacode_demo PRIVATE include ${ARMADILLO_INCLUDE_DIRS})
 target_link_libraries(chromacode_demo PRIVATE ${ARMADILLO_LIBRARIES})

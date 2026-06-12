@@ -157,7 +157,7 @@ $$
 ### 2.4 IQ 锁相重建
 
 核心解调（每通道一条按相位匹配的参考信号）的概念实现如下；完整实现见
-`code/spectral_reconstruction.py` 中的 `SpectralReconstructor.reconstruct`（I 通道
+`python/spectral_reconstruction.py` 中的 `SpectralReconstructor.reconstruct`（I 通道
 $\varphi=0$ 时 $\sin$ 即标准正弦，Q 通道 $\varphi=\pi/2$ 时 $\sin(\cdot+\pi/2)=\cos$，
 二者由同一公式统一表达）：
 
@@ -344,19 +344,19 @@ LED:     [13, 23, 33, 43, 53] Hz（间距 G = 10 Hz）
 
 | 文件 | 内容 |
 |------|------|
-| [`../code/iq_sensing_system.py`](../code/iq_sensing_system.py) | 前向仿真器（`ForwardSimulator`）、目标反射率模型、主程序 |
-| [`../code/spectral_reconstruction.py`](../code/spectral_reconstruction.py) | 锁相重建核心（`SpectralReconstructor`）、光谱模型、配置加载 |
-| [`../code/make_figures.py`](../code/make_figures.py) | 中英双语结果图生成 |
+| [`../python/iq_sensing_system.py`](../python/iq_sensing_system.py) | 前向仿真器（`ForwardSimulator`）、目标反射率模型、主程序 |
+| [`../python/spectral_reconstruction.py`](../python/spectral_reconstruction.py) | 锁相重建核心（`SpectralReconstructor`）、光谱模型、配置加载 |
+| [`../python/make_figures.py`](../python/make_figures.py) | 中英双语结果图生成 |
 | [`../config/example_config.yaml`](../config/example_config.yaml) | 传感器 + LED 配置模板 |
-| [`../examples/example_usage.py`](../examples/example_usage.py) | 最小可运行示例 |
-| [`../tests/test_reconstruction.py`](../tests/test_reconstruction.py) | 端到端等价性测试（复现均值 RMSE ≈ 0.044） |
+| [`../python/examples/example_usage.py`](../python/examples/example_usage.py) | 最小可运行示例 |
+| [`../python/tests/test_reconstruction.py`](../python/tests/test_reconstruction.py) | 端到端等价性测试（复现均值 RMSE ≈ 0.044） |
 
 运行：
 
 ```bash
-pip install -r ../requirements.txt
-python ../code/iq_sensing_system.py        # 仿真 + 重建 + 结果图
-python ../tests/test_reconstruction.py     # 验证精度
+pip install -r ../python/requirements.txt
+python ../python/iq_sensing_system.py        # 仿真 + 重建 + 结果图
+python ../python/tests/test_reconstruction.py     # 验证精度
 ```
 
 完整数学理论（定义、引理、定理及证明）见 [`mathematical_theory.md`](mathematical_theory.md)。

@@ -15,9 +15,9 @@ parameters.
 
 | File | Purpose |
 |------|---------|
-| `chromacode.hpp` | Header-only library: Butterworth low-pass design, zero-phase `sosfiltfilt`, `SpectralReconstructor`. |
-| `demo.cpp` | Loads a captured signal, reconstructs the 10 channels, scores RMSE / Pearson r against the analytic ground truth. |
-| `sample_signal.csv` | A captured signal (2400 samples) exported from the Python simulator (`seed=42`). |
+| `include/chromacode.hpp` | Header-only library: JSON config loader, Butterworth low-pass design, zero-phase `sosfiltfilt`, `SpectralReconstructor`. |
+| `src/demo.cpp` | Loads a config + captured signal, reconstructs the 10 channels, scores RMSE / Pearson r against the analytic ground truth. |
+| `data/sample_signal.csv` | A captured signal (2400 samples) exported from the Python simulator (`seed=42`). |
 | `CMakeLists.txt` | Optional CMake build. |
 
 ## Dependencies
@@ -40,9 +40,9 @@ brew install armadillo          # macOS
 
 ```bash
 ARMA=$(brew --prefix armadillo)
-clang++ -std=c++17 -O2 -I"$ARMA/include" demo.cpp \
+clang++ -std=c++17 -O2 -Iinclude -I"$ARMA/include" src/demo.cpp \
         -L"$ARMA/lib" -larmadillo -o chromacode_demo
-./chromacode_demo ../config/default_10ch.json sample_signal.csv
+./chromacode_demo ../config/default_10ch.json data/sample_signal.csv
 ```
 
 **CMake:**
@@ -50,7 +50,7 @@ clang++ -std=c++17 -O2 -I"$ARMA/include" demo.cpp \
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/chromacode_demo ../config/default_10ch.json sample_signal.csv
+./build/chromacode_demo ../config/default_10ch.json data/sample_signal.csv
 ```
 
 Expected output (matches the Python reference exactly):
@@ -99,7 +99,7 @@ const arma::vec& r850 = result.reflectance[850.0];
 
 `demo.cpp` doubles as a regression test: it asserts `mean RMSE < 0.05` and
 `mean r > 0.95`, and prints `PASS`/`FAIL`. The numbers are identical to the
-Python `tests/test_reconstruction.py` reference, confirming the port is exact.
+Python `python/tests/test_reconstruction.py` reference, confirming the port is exact.
 
 The shared theory (definitions, lemmas, proofs) is in
 [`../docs/mathematical_theory.md`](../docs/mathematical_theory.md).

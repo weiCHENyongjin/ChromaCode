@@ -111,29 +111,30 @@ $$\hat R_k(t) = \frac{\pi}{w_k}\,\mathrm{LPF}[\,s\, r_k\,]
 ## 目录结构
 
 ```
-v1_best_scheme/
-├── README.md                       ← 英文说明
-├── README.zh-CN.md                 ← 本文件（中文）
-├── LICENSE                         ← MIT 许可证
-├── CODE_STYLE.md                   ← 代码规范
-├── requirements.txt                ← Python 依赖
-├── code/
-│   ├── iq_sensing_system.py        ← 前向仿真器 + 参考演示（含主程序）
-│   ├── spectral_reconstruction.py  ← 核心：配置驱动的重建 API
-│   └── make_figures.py             ← 重新生成中英双语 README 结果图
-├── config/
-│   └── example_config.yaml         ← 传感器 + LED 配置模板（带注释）
-├── examples/
-│   └── example_usage.py            ← 最小可运行示例
-├── tests/
-│   └── test_reconstruction.py      ← 端到端等价性测试
+.
+├── README.md / README.zh-CN.md      ← 项目说明（中英双语）
+├── LICENSE                          ← MIT 许可证
+├── CODE_STYLE.md                    ← 代码规范
+├── config/                          ← 共享配置（Python 与 C++ 共用）
+│   ├── default_10ch.json            ← 已验证 10 通道配置（权重模式）
+│   └── example_config.yaml          ← 传感器 + LED 配置模板（带注释）
 ├── docs/
-│   ├── system_documentation.md     ← 系统工程文档（含推导）
-│   └── mathematical_theory.md      ← 完整数学理论（引理、定理及证明）
-├── cpp/                            ← 重建核心的 C++ 移植
-│   ├── chromacode.hpp              ← 头文件库（基于 Armadillo）
-│   └── demo.cpp                    ← 演示 / 验证（均值 RMSE 0.0439）
-└── figures/                        ← 结果图
+│   ├── system_documentation.md      ← 系统工程文档（含推导）
+│   └── mathematical_theory.md       ← 完整数学理论（引理、定理及证明）
+├── figures/                         ← 结果图（中 / 英）
+├── python/                          ← Python 实现
+│   ├── requirements.txt
+│   ├── iq_sensing_system.py         ← 前向仿真器 + 参考演示（含主程序）
+│   ├── spectral_reconstruction.py   ← 核心：配置驱动的重建 API
+│   ├── make_figures.py              ← 重新生成中英双语 README 结果图
+│   ├── examples/example_usage.py    ← 最小可运行示例
+│   └── tests/test_reconstruction.py ← 端到端等价性测试
+└── cpp/                             ← 重建核心的 C++ 移植
+    ├── include/chromacode.hpp       ← 头文件库（基于 Armadillo）
+    ├── src/demo.cpp                 ← 演示 / 验证（均值 RMSE 0.0439）
+    ├── data/sample_signal.csv       ← 示例采集信号
+    ├── CMakeLists.txt
+    └── README.md
 ```
 
 ---
@@ -142,16 +143,16 @@ v1_best_scheme/
 
 ```bash
 # 安装依赖
-pip install -r requirements.txt
+pip install -r python/requirements.txt
 
-python code/iq_sensing_system.py        # 参考仿真 + 可视化
-python examples/example_usage.py        # 配置驱动 API 的演示
-python tests/test_reconstruction.py     # 端到端等价性测试
+python python/iq_sensing_system.py            # 参考仿真 + 可视化
+python python/examples/example_usage.py       # 配置驱动 API 的演示
+python python/tests/test_reconstruction.py    # 端到端等价性测试
 ```
 
 ## 可复用重建 API
 
-[`code/spectral_reconstruction.py`](code/spectral_reconstruction.py) 提供配置驱动接口：在
+[`python/spectral_reconstruction.py`](python/spectral_reconstruction.py) 提供配置驱动接口：在
 JSON/YAML 文件中描述**传感器 + LED**，传入采集到的一维信号，得到各波长反射率。
 
 ```python

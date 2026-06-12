@@ -17,9 +17,9 @@ import sys
 
 import numpy as np
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "code"))
+HERE = os.path.dirname(os.path.abspath(__file__))   # python/tests
+PYTHON_ROOT = os.path.dirname(HERE)                  # python/
+sys.path.insert(0, PYTHON_ROOT)
 
 from iq_sensing_system import (  # noqa: E402
     SPECTRAL_GRID_NM,

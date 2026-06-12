@@ -17,9 +17,10 @@ from typing import Tuple
 
 import numpy as np
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "code"))
+HERE = os.path.dirname(os.path.abspath(__file__))   # python/examples
+PYTHON_ROOT = os.path.dirname(HERE)                  # python/
+REPO_ROOT = os.path.dirname(PYTHON_ROOT)             # repo root
+sys.path.insert(0, PYTHON_ROOT)
 
 from iq_sensing_system import (  # noqa: E402
     WAVELENGTHS_NM,
@@ -46,7 +47,7 @@ def main() -> None:
     signal, gray_signal, sensor_time, time_hi, true_reflectance = demo_capture()
 
     # 1) Load the system description from a config file.
-    config_path = os.path.join(ROOT, "config", "example_config.yaml")
+    config_path = os.path.join(REPO_ROOT, "config", "example_config.yaml")
     reconstructor = SpectralReconstructor.from_config_file(config_path)
 
     # 2) Reconstruct. A gray reference (known reflectance 0.5) gives absolute

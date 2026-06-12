@@ -23,8 +23,8 @@ Thumbs.db
 
 # Generated demo outputs
 reconstruction_result.png
-examples/example_reconstruction.png
+python/examples/example_reconstruction.png
 
 # Promotional / marketing material (not part of the open-source project)
 promo/
-code/make_math_frames.py
+python/make_math_frames.py

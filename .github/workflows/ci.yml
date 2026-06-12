@@ -15,9 +15,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r python/requirements.txt
       - name: Run end-to-end test
-        run: python tests/test_reconstruction.py
+        run: python python/tests/test_reconstruction.py
 
   cpp:
     name: C++ port (shared config)
@@ -27,6 +27,6 @@ jobs:
       - name: Install Armadillo
         run: sudo apt-get update && sudo apt-get install -y libarmadillo-dev
       - name: Build demo
-        run: g++ -std=c++17 -O2 cpp/demo.cpp -larmadillo -o chromacode_demo
+        run: g++ -std=c++17 -O2 -Icpp/include cpp/src/demo.cpp -larmadillo -o chromacode_demo
       - name: Run demo on the shared JSON config (asserts mean RMSE ~ 0.044)
-        run: ./chromacode_demo config/default_10ch.json cpp/sample_signal.csv
+        run: ./chromacode_demo config/default_10ch.json cpp/data/sample_signal.csv

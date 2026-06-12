@@ -3,7 +3,7 @@
 **Mathematical Theory of IQ Phase-Encoded Multi-Wavelength Reflectance Reconstruction**
 
 > 本文给出该系统从基础假设到重建公式的完整数学理论，包括定义、引理、定理及其证明、误差分析与设计约束的推导。
-> 记号与符号见 §0。配套实现见 [`../code/spectral_reconstruction.py`](../code/spectral_reconstruction.py)，工程化文档见 [`system_documentation.md`](system_documentation.md)。
+> 记号与符号见 §0。配套实现见 [`../python/spectral_reconstruction.py`](../python/spectral_reconstruction.py)，工程化文档见 [`system_documentation.md`](system_documentation.md)。
 >
 > *GitHub 已支持 LaTeX 数学渲染；若本地阅读器不渲染公式，请用支持 KaTeX/MathJax 的查看器。*
 
@@ -409,7 +409,7 @@ $$
 w_k\approx\sum_{\lambda\in\Lambda_\delta}\tilde I_k(\lambda)\,\tilde\eta(\lambda)\,\delta.
 $$
 
-实现见 `spectral_overlap()`（`code/spectral_reconstruction.py`）。该步骤保证不同源数据可一致积分。
+实现见 `spectral_overlap()`（`python/spectral_reconstruction.py`）。该步骤保证不同源数据可一致积分。
 
 ### 9.3 标定模式（按实用性排序）
 
@@ -476,7 +476,7 @@ $B$ 位均匀量化等效附加均匀噪声，方差 $\sigma_q^2=q^2/12=2^{-2B}/
 
 ### 10.4 与实测一致性
 
-按上述模型，10 通道均值 $\mathrm{RMSE}=0.044$、皮尔逊 $r=0.964$。本仓库 `tests/test_reconstruction.py` 用前向仿真驱动配置化 API，复现**逐通道**数值（450 nm $0.0246$、850 nm $0.0717$、均值 $0.0439$），与理论及原始实现一致。
+按上述模型，10 通道均值 $\mathrm{RMSE}=0.044$、皮尔逊 $r=0.964$。本仓库 `python/tests/test_reconstruction.py` 用前向仿真驱动配置化 API，复现**逐通道**数值（450 nm $0.0246$、850 nm $0.0717$、均值 $0.0439$），与理论及原始实现一致。
 
 ---
 
@@ -516,4 +516,4 @@ $$
 
 ---
 
-*文档结束 — 配套代码与测试见本仓库 `code/` 与 `tests/`。*
+*文档结束 — 配套代码与测试见本仓库 `python/` 与 `cpp/`。*
