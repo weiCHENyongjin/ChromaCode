@@ -130,6 +130,9 @@ v1_best_scheme/
 ├── docs/
 │   ├── system_documentation.md     ← 系统工程文档（含推导）
 │   └── mathematical_theory.md      ← 完整数学理论（引理、定理及证明）
+├── cpp/                            ← 重建核心的 C++ 移植
+│   ├── chromacode.hpp              ← 头文件库（基于 Armadillo）
+│   └── demo.cpp                    ← 演示 / 验证（均值 RMSE 0.0439）
 └── figures/                        ← 结果图
 ```
 
@@ -158,6 +161,9 @@ rec = SpectralReconstructor.from_config_file("config/example_config.yaml")
 result = rec.reconstruct(signal, white_reference=gray_capture, reference_level=0.5)
 refl_850nm = result.reflectance[850.0]     # 850 nm 通道的时间序列
 ```
+
+重建核心的 **C++ 移植**见 [`cpp/`](cpp/)（头文件库，基于 Armadillo），逐通道复现 Python 精度，
+详见 [`cpp/README.md`](cpp/README.md)。
 
 **传感器光谱响应为可选项**（实际中通常未知）。标定模式按实用性排序：`white_reference`
 （拍一帧平整参考板 → 绝对反射率，无需知道 LED 功率与响应）→ `weights`（已标定权重）→

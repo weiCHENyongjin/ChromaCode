@@ -154,6 +154,9 @@ result = rec.reconstruct(signal, white_reference=gray_capture, reference_level=0
 refl_850nm = result.reflectance[850.0]      # time series for the 850 nm channel
 ```
 
+A **C++ port** of the reconstruction core lives in [`cpp/`](cpp/) (header-only, Armadillo-based)
+and reproduces the Python accuracy channel-for-channel — see [`cpp/README.md`](cpp/README.md).
+
 **The sensor spectral response is optional** (it is usually unknown). Calibration modes, in
 order of practicality: `white_reference` (a single flat-target capture → absolute reflectance,
 no LED-power or response knowledge needed) → `weights` (pre-calibrated) → `spectral` (uses the
@@ -186,6 +189,9 @@ automatically by resampling onto a common grid. See
 ├── docs/
 │   ├── system_documentation.md     ← engineering doc incl. derivations
 │   └── mathematical_theory.md      ← full theory: lemmas, theorems, proofs
+├── cpp/                            ← C++ port of the reconstruction core
+│   ├── chromacode.hpp              ← header-only library (Armadillo)
+│   └── demo.cpp                    ← demo / validation (mean RMSE 0.0439)
 └── figures/                        ← result figures
 ```
 
