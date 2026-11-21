@@ -22,6 +22,10 @@ The project studies encoding, calibration, signal separation, channel count, tem
 
 During each exposure, the sensor integrates the light reflected from all active LEDs. For one pixel and a scene that is approximately constant over a block, a simplified model is:
 
+![Animated example of coded illumination and block reconstruction](assets/en/coded-light.gif)
+
+*Idealized, noise-free illustration: 48 exposure-integrated observations of three bands, with a constant offset fitted jointly. The estimate appears after the complete block; playback is not a measurement of system speed.*
+
 ```math
 y_t = \sum_{c=1}^{C} A_{tc}a_c + \sum_{j=1}^{P} B_{tj}b_j + \varepsilon_t,
 \qquad A_{tc} = \int_{\text{exposure }t} L_c(\tau)\,d\tau.
@@ -51,9 +55,13 @@ This example uses 32 PWM-coded bands, 128 frames per block at 240 Hz, a 12-bit s
 
 The figure shows block 3 of 8. Pseudo-colour combines three fixed groups of bands on a shared 0–0.4 display scale; it is **not natural RGB**. The error map is per-pixel RMSE across bands, computed from unclipped reflectances. Across all eight blocks the simulated RMSE is **0.0154**. This scene uses separate reference captures, shot/read noise, exposure jitter and LED clock offset; it does not include the ambient flicker used in the experiments below. Results from these separate experiments should not be directly compared.
 
-![Simulated block reconstruction sequence](assets/en/block-sequence.gif)
+![Animated exploration of the simulated bands](assets/en/band-explorer.gif)
 
-*The eight blocks shown as a sequence. Playback at 2 blocks/s is for display only; it is not the measured capture or processing rate.*
+*A scan through all 32 bands of the same block, not a time series. The cross marks the pixel shown in the lower plot; connecting band values is only a visual guide, not a continuous spectrum. Signed error is reconstruction minus reference. Image colours use fixed, clipped display scales; the underlying results are not clipped.*
+
+![Simulated block reconstruction sequence](assets/en/block-reconstruction.gif)
+
+*The eight independently reconstructed blocks, with per-block RMSE computed over all pixels and bands. Playback at 2 blocks/s is for display only; it is not the measured capture or processing rate.*
 
 ## Accuracy and channel trade-offs
 
