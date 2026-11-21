@@ -1,56 +1,56 @@
 # ChromaCode
 
-中文 | [English](README.en.md)
+English | [中文](README.zh.md)
 
-**用时间编码探索单传感器多光谱成像。**
+**Exploring multispectral imaging with one sensor and time-coded illumination.**
 
-ChromaCode 是一个多光谱成像研究项目。它通过对不同波段的照明进行时间编码，让多路光谱响应共享同一个传感器，再从混合观测中重建各波段的反射率。对于面阵传感器，这一过程可以逐像素应用，形成多光谱图像。
+ChromaCode is a multispectral imaging research project. It encodes illumination from different spectral bands over time, allowing their responses to share one sensor. Reconstruction then separates the mixed observations into band reflectances. With an area sensor, the same process can be applied per pixel to form a multispectral image.
 
-![仿真重建总览](assets/overview.png)
+![Simulated reconstruction overview](assets/overview.png)
 
-*仿真示例：从左到右为参考图像、重建图像和误差热图。*
+*A simulated example: reference image, reconstruction, and error map, from left to right.*
 
-## 项目在做什么
+## What the project explores
 
-- **编码采集**：让多路照明共用一条传感路径，并在重建时分离各波段响应。
-- **逐像素重建**：将单点的光谱恢复方法扩展到图像，探索多光谱图像与视频。
-- **两种处理方式**：流式解调持续更新结果；分块重建联合处理一段曝光序列，输出该时间窗口的结果。
-- **校准与背景建模**：利用参考采集和背景模型，在满足假设时减小部分误差来源。
+- **Encoded acquisition:** multiple illumination bands share a sensing path and are separated during reconstruction.
+- **Per-pixel reconstruction:** spectral recovery is extended from a single point to images, exploring multispectral imaging and video.
+- **Two processing modes:** streaming demodulation updates continuously; block reconstruction combines an exposure sequence and returns a result for that time window.
+- **Calibration and background modelling:** reference captures and background models can reduce specific errors when their assumptions hold.
 
-输出是指定 LED 照明波段的有效反射率，并非任意连续光谱。分块结果也不等同于每个相机帧独立测得的一张多光谱图。
+The output is effective reflectance for the specified LED illumination bands, not an unrestricted continuous spectrum. A block result is not an independent multispectral measurement for every camera frame.
 
-## 仿真展示
+## Simulated examples
 
-下图分别展示仿真中的波段误差和选定像素的重建结果。它们来自特定合成场景，不代表所有材料、光照或运动条件下的精度。
+The figures below show band errors and selected-pixel reconstructions from simulations. They illustrate particular synthetic scenes, not accuracy across all materials, lighting, or motion.
 
-![仿真波段误差](assets/per-band-error.png)
+![Simulated per-band error](assets/per-band-error.png)
 
-*仿真示例：各波段反射率均方根误差。*
+*Simulation example: root-mean-square reflectance error by spectral band.*
 
-![仿真光谱对比](assets/spectral-curves.png)
+![Simulated spectral comparison](assets/spectral-curves.png)
 
-*仿真示例：选定像素的参考与重建波段值。*
+*Simulation example: reference and reconstructed band values for selected pixels.*
 
-### 动态场景
+### Dynamic scene
 
-![动态场景仿真](assets/reconstruction.gif)
+![Simulated dynamic reconstruction](assets/reconstruction.gif)
 
-*合成运动场景的逐波段重建与误差展示，并非真实运动实验。*
+*Band-by-band reconstruction and error for a synthetic moving scene, not a real-world motion experiment.*
 
-### 流式输出
+### Streaming output
 
-![流式重建仿真](assets/streaming-demo.gif)
+![Simulated streaming reconstruction](assets/streaming-demo.gif)
 
-*单像素混合信号与流式波段估计的仿真示例。*
+*A simulated single-pixel mixed signal and streaming band estimates.*
 
-## 当前进展
+## Current progress
 
-- **背景与时序**：研究照明编码、曝光时间和环境光干扰对重建的影响。
-- **通道与动态性**：比较固定光子和时间预算下的通道数，并探索窗口内变化的模型；更多通道或更复杂的模型并不保证更高精度。
-- **计算与内存**：一次单线程 CPU 测量中，128 帧、1920 × 1080 像素、32 波段的合成 uint16 输入，重建中位时间为 **0.349 秒**，进程峰值内存为 **0.97 GB**。计时包含输入转换，不包含相机采集、I/O、模型构建或校准；这不是端到端视频帧率。
+- **Background and timing:** studying how illumination coding, exposure timing, and ambient interference affect reconstruction.
+- **Channels and dynamics:** comparing channel counts under fixed light and time budgets and exploring models for changes within a window; more channels or more complex models do not guarantee better accuracy.
+- **Computation and memory:** in one single-threaded CPU measurement, reconstructing a synthetic 128-frame uint16 block at 1920 × 1080 pixels and 32 bands took a median **0.349 s**, with **0.97 GB** peak process memory. Timing includes input conversion but excludes camera acquisition, I/O, model setup, and calibration; it is not an end-to-end video frame rate.
 
-## 状态与联系
+## Status and contact
 
-项目仍在研究中，目前展示的结果来自仿真，尚不构成真实相机精度或应用部署的验证。农业、工业检测、文化遗产分析和机器人视觉等均是潜在方向。
+The project is under research. The results shown here are simulated and do not establish real-camera accuracy or deployment readiness. Agriculture, industrial inspection, cultural-heritage analysis, and robotic vision are potential applications.
 
-本仓库用于项目介绍、图片和演示，不发布源代码或技术文档。如有合作或许可意向，欢迎通过 Issue 联系。
+This repository hosts the project overview, images, and demos; source code and technical documentation are not published here. For collaboration or licensing enquiries, please open an issue.
